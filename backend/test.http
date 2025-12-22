@@ -1,0 +1,414 @@
+### ================================================
+### TUNING Backend API Testing
+### Use REST Client extension in VSCode
+### ================================================
+
+@baseUrl = http://localhost:3000
+@sessionId = 8e229aea-69f6-422c-9178-0586c253348d
+
+### ================================================
+### System Health & Data
+### ================================================
+
+### Health Check
+GET {{baseUrl}}/health
+
+### Get all patients (check seed data)
+GET {{baseUrl}}/api/patients
+
+### ================================================
+### COMPLETE APPOINTMENT BOOKING FLOW
+### ================================================
+
+### 1. Start a new session
+# @name startSession
+POST {{baseUrl}}/api/session/start
+Content-Type: application/json
+
+{
+  "agentType": "baseline"
+}
+
+### ⚠️ IMPORTANT: Copy the sessionId from the response above
+### and replace YOUR_SESSION_ID_HERE at the top of this file
+
+### ------------------------------------------------
+### STEP 1: PATIENT_ID
+### ------------------------------------------------
+
+### Send patient ID (SUCCESS)
+POST {{baseUrl}}/api/session/{{sessionId}}/message
+Content-Type: application/json
+
+{
+  "message": "P001"
+}
+
+### ------------------------------------------------
+### STEP 2: VISIT_TYPE
+### ------------------------------------------------
+
+### Send visit type: follow_up (SUCCESS)
+POST {{baseUrl}}/api/session/{{sessionId}}/message
+Content-Type: application/json
+
+{
+  "message": "follow-up"
+}
+
+### ------------------------------------------------
+### STEP 3: DEPARTMENT
+### ------------------------------------------------
+
+### Send department (SUCCESS)
+POST {{baseUrl}}/api/session/{{sessionId}}/message
+Content-Type: application/json
+
+{
+  "message": "Cardiology"
+}
+
+### ------------------------------------------------
+### STEP 4: DOCTOR
+### ------------------------------------------------
+
+### Send doctor name (SUCCESS)
+POST {{baseUrl}}/api/session/{{sessionId}}/message
+Content-Type: application/json
+
+{
+  "message": "Dr. Sarah Johnson"
+}
+
+### ------------------------------------------------
+### STEP 5: DATE
+### ------------------------------------------------
+
+### Send appointment date - Monday (SUCCESS)
+### NOTE: Change to a future Monday date
+POST {{baseUrl}}/api/session/{{sessionId}}/message
+Content-Type: application/json
+
+{
+  "message": "2025-12-23"
+}
+
+### ------------------------------------------------
+### STEP 6: TIME
+### ------------------------------------------------
+
+### Send appointment time (SUCCESS)
+POST {{baseUrl}}/api/session/{{sessionId}}/message
+Content-Type: application/json
+
+{
+  "message": "09:00"
+}
+
+### ------------------------------------------------
+### STEP 7: CONFIRMATION
+### ------------------------------------------------
+
+### Confirm appointment (SUCCESS)
+POST {{baseUrl}}/api/session/{{sessionId}}/message
+Content-Type: application/json
+
+{
+  "message": "yes"
+}
+
+### ================================================
+### BASELINE REJECTION TEST CASES
+### ================================================
+
+### Start a new session for rejection tests
+# @name rejectionSession
+POST {{baseUrl}}/api/session/start
+Content-Type: application/json
+
+{
+  "agentType": "baseline"
+}
+
+### TEST: Multi-step info at PATIENT_ID (REJECTION)
+POST {{baseUrl}}/api/session/{{sessionId}}/message
+Content-Type: application/json
+
+{
+  "message": "P001, I want Dr. Johnson tomorrow at 3PM"
+}
+
+### Expected: Rejection - containsOtherStepInfo
+### Message: "Please provide only information for the current step..."
+
+### TEST: Invalid patient ID (REJECTION)
+POST {{baseUrl}}/api/session/{{sessionId}}/message
+Content-Type: application/json
+
+{
+  "message": "P999"
+}
+
+### Expected: Rejection - VALIDATION_FAILED
+### Message: "Patient ID P999 not found in our system"
+
+### TEST: Wrong format patient ID (REJECTION)
+POST {{baseUrl}}/api/session/{{sessionId}}/message
+Content-Type: application/json
+
+{
+  "message": "ABC123"
+}
+
+### Expected: Rejection - Invalid format
+
+### ================================================
+### STEP-BY-STEP VALIDATION TESTS
+### ================================================
+
+### VISIT_TYPE Tests
+# First complete PATIENT_ID step, then try these:
+
+### Valid: new visit
+POST {{baseUrl}}/api/session/{{sessionId}}/message
+Content-Type: application/json
+
+{
+  "message": "new visit"
+}
+
+### Valid: checkup
+POST {{baseUrl}}/api/session/{{sessionId}}/message
+Content-Type: application/json
+
+{
+  "message": "I need a checkup"
+}
+
+### Invalid: wrong visit type
+POST {{baseUrl}}/api/session/{{sessionId}}/message
+Content-Type: application/json
+
+{
+  "message": "emergency"
+}
+
+### DEPARTMENT Tests
+
+### Valid: Short form
+POST {{baseUrl}}/api/session/{{sessionId}}/message
+Content-Type: application/json
+
+{
+  "message": "Cardio"
+}
+
+### Valid: Full name
+POST {{baseUrl}}/api/session/{{sessionId}}/message
+Content-Type: application/json
+
+{
+  "message": "Orthopedics"
+}
+
+### Invalid: Non-existent department
+POST {{baseUrl}}/api/session/{{sessionId}}/message
+Content-Type: application/json
+
+{
+  "message": "Psychiatry"
+}
+
+### Expected: "Department Psychiatry not found. Available departments: ..."
+
+### DOCTOR Tests (requires DEPARTMENT and VISIT_TYPE)
+
+### Invalid: Doctor not in selected department
+POST {{baseUrl}}/api/session/{{sessionId}}/message
+Content-Type: application/json
+
+{
+  "message": "Dr. Emily Williams"
+}
+
+### Expected: If selected Cardiology, Dr. Williams (Orthopedics) will be rejected
+
+### Invalid: Doctor doesn't accept this visit type
+# (depends on seed data configuration)
+
+### DATE Tests
+
+### Invalid: Past date
+POST {{baseUrl}}/api/session/{{sessionId}}/message
+Content-Type: application/json
+
+{
+  "message": "2024-01-01"
+}
+
+### Invalid: Doctor not available on this day
+POST {{baseUrl}}/api/session/{{sessionId}}/message
+Content-Type: application/json
+
+{
+  "message": "2025-12-21"
+}
+
+### Expected: "Dr. X is not available on Sundays. Available days: ..."
+
+### TIME Tests
+
+### Invalid: Wrong time format
+POST {{baseUrl}}/api/session/{{sessionId}}/message
+Content-Type: application/json
+
+{
+  "message": "3 PM"
+}
+
+### Invalid: Time not in doctor's schedule
+POST {{baseUrl}}/api/session/{{sessionId}}/message
+Content-Type: application/json
+
+{
+  "message": "23:00"
+}
+
+### CONFIRMATION Tests
+
+### Invalid: Trying to make changes (REJECTION)
+POST {{baseUrl}}/api/session/{{sessionId}}/message
+Content-Type: application/json
+
+{
+  "message": "Change the time to 3PM"
+}
+
+### Expected: "Changes are not allowed at this step..."
+
+### ================================================
+### NATURAL LANGUAGE TESTS
+### ================================================
+
+### Natural language patient ID
+POST {{baseUrl}}/api/session/{{sessionId}}/message
+Content-Type: application/json
+
+{
+  "message": "My patient number is P002"
+}
+
+### Natural language visit type
+POST {{baseUrl}}/api/session/{{sessionId}}/message
+Content-Type: application/json
+
+{
+  "message": "I'm here for a follow-up appointment"
+}
+
+### Natural language date
+POST {{baseUrl}}/api/session/{{sessionId}}/message
+Content-Type: application/json
+
+{
+  "message": "next Monday"
+}
+
+### Natural language time
+POST {{baseUrl}}/api/session/{{sessionId}}/message
+Content-Type: application/json
+
+{
+  "message": "2 in the afternoon"
+}
+
+### ================================================
+### TYPO CORRECTION TESTS (OpenAI Auto-Correction)
+### ================================================
+
+### DEPARTMENT - Typo: "Cardoilogy" → should auto-correct to "Cardiology"
+### After completing PATIENT_ID and VISIT_TYPE steps
+POST {{baseUrl}}/api/session/{{sessionId}}/message
+Content-Type: application/json
+
+{
+  "message": "Cardoilogy"
+}
+
+### DEPARTMENT - Abbreviation: "Neuro" → should auto-correct to "Neurology"
+POST {{baseUrl}}/api/session/{{sessionId}}/message
+Content-Type: application/json
+
+{
+  "message": "Neuro"
+}
+
+### DEPARTMENT - Typo: "Orthopadics" → should auto-correct to "Orthopedics"
+POST {{baseUrl}}/api/session/{{sessionId}}/message
+Content-Type: application/json
+
+{
+  "message": "Orthopadics"
+}
+
+### DOCTOR - Partial name: "Dr. Jon" → should auto-correct to "Dr. Sarah Johnson"
+### After completing DEPARTMENT (Cardiology) step
+POST {{baseUrl}}/api/session/{{sessionId}}/message
+Content-Type: application/json
+
+{
+  "message": "Dr. Jon"
+}
+
+### DOCTOR - Typo: "Dr. Chen" with typo → should auto-correct to "Dr. Michael Chen"
+### After completing DEPARTMENT (Orthopedics) step
+POST {{baseUrl}}/api/session/{{sessionId}}/message
+Content-Type: application/json
+
+{
+  "message": "Dr. Chenn"
+}
+
+### DOCTOR - Last name only: "Williams" → should auto-correct to "Dr. Emily Williams"
+### After completing DEPARTMENT (Dermatology) step
+POST {{baseUrl}}/api/session/{{sessionId}}/message
+Content-Type: application/json
+
+{
+  "message": "Williams"
+}
+
+### ================================================
+### Session Management
+### ================================================
+
+### Get current session state
+GET {{baseUrl}}/api/session/{{sessionId}}
+
+### Delete session
+DELETE {{baseUrl}}/api/session/{{sessionId}}
+
+### ================================================
+### QUICK REFERENCE - Seed Data
+### ================================================
+
+# Patients: P001, P002, P003, P004, P005
+# John Smith, Maria Garcia, David Kim, Jessica Brown, Robert Taylor
+
+# Departments:
+# - Cardiology (CARDIO)
+# - Orthopedics (ORTHO)
+# - Dermatology (DERM)
+# - Neurology (NEURO)
+# - Pediatrics (PEDS)
+
+# Doctors:
+# - Dr. Sarah Johnson (Cardiology)
+# - Dr. Michael Chen (Orthopedics)
+# - Dr. Emily Williams (Dermatology)
+# - Dr. James Rodriguez (Neurology)
+# - Dr. Jennifer Lee (Pediatrics)
+
+# Visit Types: new_visit, follow_up, checkup
+
+# Schedule: Most doctors work Mon-Fri, 08:00-17:00 (various time slots)
