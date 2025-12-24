@@ -8,7 +8,8 @@ import type {
   MessageResponse,
 } from './types';
 
-const API_BASE_URL = 'http://localhost:3000';
+// Use relative URL in production (same origin), localhost in development
+const API_BASE_URL = import.meta.env.MODE === 'production' ? '' : 'http://localhost:3000';
 
 export const api = {
   /**

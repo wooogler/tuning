@@ -1,6 +1,5 @@
 import { useMemo } from 'react';
 import type { AppointmentStep } from '../types';
-import { useSessionStore } from '../store/useSessionStore';
 import { ProgressBar } from '../components/ProgressBar';
 import { MessageList } from '../components/MessageList';
 import { ChatInput } from '../components/ChatInput';

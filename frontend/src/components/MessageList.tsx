@@ -92,11 +92,28 @@ export function MessageList({ onGuiSelect }: MessageListProps) {
 
                 {/* Render appointment details card on CONFIRMATION step */}
                 {msg.metadata?.currentStep === 'CONFIRMATION' && index === lastAssistantIndex && (
-                  <AppointmentDetailsCard
-                    appointmentData={appointmentData}
-                    showStartButton={!stepOptions}
-                    onReset={resetSession}
-                  />
+                  <>
+                    {/* Show appointment details when asking for confirmation OR after confirmed (not cancelled) */}
+                    {!msg.content.toLowerCase().includes('cancelled') && (
+                      <AppointmentDetailsCard
+                        appointmentData={appointmentData}
+                        showStartButton={!stepOptions}
+                        onReset={resetSession}
+                      />
+                    )}
+
+                    {/* Show only "Start New Booking" button if cancelled */}
+                    {msg.content.toLowerCase().includes('cancelled') && !stepOptions && (
+                      <div className="mt-3">
+                        <button
+                          onClick={resetSession}
+                          className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none ring-offset-background bg-emerald-600 text-white hover:bg-emerald-700 h-10 py-2 px-4"
+                        >
+                          Start New Booking
+                        </button>
+                      </div>
+                    )}
+                  </>
                 )}
 
                 {/* Render GUI component if this is the last assistant message with options */}

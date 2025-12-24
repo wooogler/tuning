@@ -116,22 +116,40 @@ export class BaselineAgent implements Agent {
     const dataKey = this.getDataKeyForStep(step);
     const data = { [dataKey]: validation.value };
 
-    // If this is CONFIRMATION step and it's confirmed, save appointment to DB
-    if (step === 'CONFIRMATION' && validation.value === true) {
-      try {
-        await this.saveAppointment(session);
-      } catch (error) {
-        console.error('Failed to save appointment:', error);
+    // Handle CONFIRMATION step
+    if (step === 'CONFIRMATION') {
+      if (validation.value === true) {
+        // User confirmed - save appointment
+        try {
+          await this.saveAppointment(session);
+        } catch (error) {
+          console.error('Failed to save appointment:', error);
+          return {
+            accepted: false,
+            message: 'Failed to save appointment. Please try again.',
+            rejectionReason: 'DB_SAVE_FAILED',
+          };
+        }
+
         return {
-          accepted: false,
-          message: 'Failed to save appointment. Please try again.',
-          rejectionReason: 'DB_SAVE_FAILED',
+          accepted: true,
+          message: '✓ Appointment confirmed.',
+          nextStep: undefined,
+          data,
+        };
+      } else {
+        // User declined - cancel appointment
+        return {
+          accepted: true,
+          message: 'Appointment cancelled.',
+          nextStep: undefined,
+          data,
         };
       }
     }
 
-    // Success!
-    const nextPrompt = nextStep ? this.getStepPrompt(nextStep) : 'Your appointment has been confirmed! You can start a new booking by clicking the Reset button.';
+    // Success for other steps!
+    const nextPrompt = nextStep ? this.getStepPrompt(nextStep) : '';
 
     return {
       accepted: true,
