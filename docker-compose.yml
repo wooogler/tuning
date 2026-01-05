@@ -1,0 +1,59 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    container_name: tuning-backend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - HOST=0.0.0.0
+    env_file:
+      - ./backend/.env
+    volumes:
+      # Persist SQLite database
+      - ./backend/data:/app/backend/data:z
+      # Mount frontend dist for serving (built outside container)
+      - ./frontend/dist:/app/frontend/dist:ro,z
+    networks:
+      - tuning-network
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/api/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  nginx:
+    image: nginx:alpine
+    container_name: tuning-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/nginx/nginx.conf:/etc/nginx/nginx.conf:ro,z
+      - ./deploy/nginx/conf.d:/etc/nginx/conf.d:ro,z
+      - ./frontend/dist:/usr/share/nginx/html:ro,z
+      # SSL certificates (if using Let's Encrypt)
+      - ./deploy/ssl:/etc/nginx/ssl:ro,z
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - tuning-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+networks:
+  tuning-network:
+    driver: bridge
